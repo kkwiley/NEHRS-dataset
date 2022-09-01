@@ -1,0 +1,119 @@
+#install necessary libraries
+install.packages("tidyverse")
+install.packages("oglmx")
+
+##pulling packages into R
+library(tidyverse) 
+library(anytime)
+library(oglmx)
+library(ggplot2)
+library(lubridate)
+library(maxLik)
+library(miscTools)
+
+#Importing/reading in nehrs csv
+nehrs <- read_csv(file.choose())
+nehrs2021 <- nehrs
+####recoding medicaid
+nehrs2021$mcaid[nehrs2021$MCAIDINS == "Yes"] <- "1"
+nehrs2021$mcaid[nehrs2021$MCAIDINS == "No"] <- "0"
+table(nehrs2021$mcaid)
+
+####recoding medicare
+nehrs2021$mcare[nehrs2021$MCAREINS == "Yes"] <- "1"
+nehrs2021$mcare[nehrs2021$MCAREINS == "No"] <- "0"
+table(nehrs2021$mcare)
+
+####recoding physician size
+nehrs2021$psize[nehrs2021$PSIZECAT_P == "1 physician"] <- "1"
+nehrs2021$psize[nehrs2021$PSIZECAT_P == "2-3 physicians"] <- "2"
+nehrs2021$psize[nehrs2021$PSIZECAT_P == "4-10 physicians"] <- "3"
+nehrs2021$psize[nehrs2021$PSIZECAT_P == "11-50 physicians"] <- "4"
+nehrs2021$psize[nehrs2021$PSIZECAT_P == "More than 50 physicians"] <- "5"
+
+table(nehrs2021$psize)
+
+
+####recoding number of locations
+nehrs2021$numloc[nehrs2021$NUMLOC_P == "1 location"] <- "1"
+nehrs2021$numloc[nehrs2021$NUMLOC_P == "2 locations"] <- "2"
+nehrs2021$numloc[nehrs2021$NUMLOC_P == "3 or more locations"] <- "3"
+
+table(nehrs2021$numloc)
+
+####recoding ownership
+nehrs2021$owns[nehrs2021$NPCMH == "Box is marked"] <- "1"
+nehrs2021$owns[nehrs2021$NACO == "Box is marked"] <- "2"
+nehrs2021$owns[nehrs2021$NP4P == "Box is marked"] <- "3"
+nehrs2021$owns[nehrs2021$NMU == "Box is marked"] <- "4"
+nehrs2021$owns[nehrs2021$MIPS == "Box is marked"] <- "5"
+nehrs2021$owns[nehrs2021$APM == "Box is marked"] <- "6"
+nehrs2021$owns[nehrs2021$NOPROG == "Box is marked"] <- "0"
+
+table(nehrs2021$owns)
+
+####recoding IPAHO
+nehrs2021$medorg[nehrs2021$IPAPHO == "Yes"] <- "1"
+nehrs2021$medorg[nehrs2021$IPAPHO == "No"] <- "0"
+
+table(nehrs2021$medorg)
+
+####recoding independent variable
+##Limited internet access and/or speed issues
+nehrs2021$teleissue1[nehrs2021$TELEMEDISSUES1 == "Box is marked"] <- "1"
+nehrs2021$teleissue1[nehrs2021$TELEMEDISSUES1 == "Box is not marked"] <- "0"
+
+##Telemedicine platform not easy to use or did not meet our needs
+nehrs2021$teleissue2[nehrs2021$TELEMEDISSUES2 == "Box is marked"] <- "1"
+nehrs2021$teleissue2[nehrs2021$TELEMEDISSUES2 == "Box is not marked"] <- "0"
+
+##Telemedicine isn't appropriate for my specialty/type of patients
+nehrs2021$teleissue3[nehrs2021$TELEMEDISSUES3 == "Box is marked"] <- "1"
+nehrs2021$teleissue3[nehrs2021$TELEMEDISSUES3 == "Box is not marked"] <- "0"
+
+##Improved reimbursement and relaxation of rules related to use of telemedicine visits
+nehrs2021$teleissue4[nehrs2021$TELEMEDISSUES4 == "Box is marked"] <- "1"
+nehrs2021$teleissue4[nehrs2021$TELEMEDISSUES4 == "Box is not marked"] <- "0"
+
+##Limitations in patients' access to technology (e.g., smartphone, computer, tablet, Internet)
+nehrs2021$teleissue5[nehrs2021$TELEMEDISSUES5 == "Box is marked"] <- "1"
+nehrs2021$teleissue5[nehrs2021$TELEMEDISSUES5 == "Box is not marked"] <- "0"
+
+##Patients' difficulty using technology/telemedicine platform
+nehrs2021$teleissue6[nehrs2021$TELEMEDISSUES6 == "Box is marked"] <- "1"
+nehrs2021$teleissue6[nehrs2021$TELEMEDISSUES6 == "Box is not marked"] <- "0"
+
+table(nehrs2021$teleissue1)
+
+##recoding dependent variable - practice does tele - yes/no
+nehrs2021$tele[nehrs2021$TELEMEDICINE == "Yes"] <- "1"
+nehrs2021$tele[nehrs2021$TELEMEDICINE == "No"] <- "0"
+
+table(nehrs2021$TELEMEDQUAL)
+
+
+##recoding dependent variable - tele quality
+nehrs2021$telequal[nehrs2021$TELEMEDQUAL == "Fully"] <- "1"
+nehrs2021$telequal[nehrs2021$TELEMEDQUAL == "Not at all"] <- "2"
+nehrs2021$telequal[nehrs2021$TELEMEDQUAL == "To a great extent"] <- "3"
+nehrs2021$telequal[nehrs2021$TELEMEDQUAL == "To a small extent"] <- "4"
+nehrs2021$telequal[nehrs2021$TELEMEDQUAL == "To some extent"] <- "5"
+
+table(nehrs2021$telequal, nehrs2021$tele)
+
+##recoding % seen via telemedicine
+nehrs2021$teleper[nehrs2021$TELEMEDPCT == "Less than 25%"] <- "1"
+nehrs2021$teleper[nehrs2021$TELEMEDPCT == "25% to 49%"] <- "2"
+nehrs2021$teleper[nehrs2021$TELEMEDPCT == "50% to 74%"] <- "3"
+nehrs2021$teleper[nehrs2021$TELEMEDPCT == "75% or more"] <- "4"
+nehrs2021$teleper[nehrs2021$TELEMEDPCT == "None"] <- "0"
+
+##running generalized ordinal logit
+results_og <- oglmx(tele ~ numloc + psize, data=nehrs2021, link = "logit", constantMEAN = FALSE, 
+                    constantSD = FALSE, delta = 0, threshparam = NULL)
+
+coef(results_og)##collect coefficient estimates
+summary(results_og)
+
+#calculate marginal effects at means
+margins.oglmx(results_og)
